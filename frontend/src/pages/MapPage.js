@@ -1,21 +1,36 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, } from 'react';
+import { useNavigate } from 'react-router-dom';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibregl from 'maplibre-gl';
 import * as THREE from "three";
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+import { Drawer, Button, Typography, Box, CircularProgress, List, ListItem } from "@mui/material";
+import axios from 'axios';
+
 const MAPTILER_API_KEY = 'eTbxwE6QCBy7MximlZtG';
 const MAPTILER_STYLE_URL = `https://api.maptiler.com/maps/streets/style.json?key=${MAPTILER_API_KEY}`;
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'http://localhost:5000';
 
 function MapPage() {
+  const navigate = useNavigate();
+
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef({}); // Reference to store markers, not state
   const [markers, setMarkers] = useState([]); // React state to re-render UI when markers change
   const models = useRef({});
 
+  const [openDrawer, setOpenDrawer] = useState(false);
+  const [userInfo, setUserInfo] = useState({});
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
+    const isAuthenticated = localStorage.getItem('isAuthenticated');
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+
     if (!map.current && mapContainer.current) {
       map.current = new maplibregl.Map({
         container: mapContainer.current,
@@ -64,18 +79,15 @@ function MapPage() {
             .addTo(map.current);
 
           marker.getElement().addEventListener('click', () => {
-            const popup = new maplibregl.Popup({ closeOnClick: false })
-              .setLngLat(marker.getLngLat())
-              .setHTML(`<button id="delete-${entry.DbId}">Remove Marker</button>`)
-              .addTo(map.current);
+            fetchUserInfo(entry.DbId);
+            setOpenDrawer(true);
 
             setTimeout(() => {
               document
-                .getElementById(`delete-${entry.DbId}`)
+                .getElementById(`delete-marker`)
                 ?.addEventListener('click', async () => {
                   await deleteMarker(entry.DbId);
                   marker.remove();
-                  popup.remove();
                   delete markersRef.current[entry.DbId]; // Remove from map tracking
                   setMarkers((prevMarkers) => prevMarkers.filter((m) => m.id !== entry.DbId)); // Remove from state
                 });
@@ -102,6 +114,19 @@ function MapPage() {
     }
   };
 
+  const fetchUserInfo = async (id) => {
+    setLoading(true);
+    try{
+      const response = await axios.get(`${API_BASE_URL}/get-detail/${id}`);
+      response.data[0].id = id
+      setUserInfo(response.data[0]);
+    } catch (error) {
+      console.error('Error fetching user info', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const deleteMarker = async (id) => {
     try {
       const response = await fetch(`${API_BASE_URL}/new_entries`);
@@ -116,9 +141,10 @@ function MapPage() {
       await fetch(`${API_BASE_URL}/delete/${id}`, { method: 'DELETE' });
     } catch (error) {
       console.error('Error deleting marker:', error);
+    } finally {
+      setOpenDrawer(false);
     }
   };
-
 
   const add3DMarker = (latitude, longitude, DbId) => {
     // parameters to ensure the model is georeferenced correctly on the map
@@ -256,6 +282,58 @@ function MapPage() {
   return (
     <div>
       <div ref={mapContainer} style={{ width: '100%', height: '100vh' }} />
+
+      <Drawer 
+        anchor="left" 
+        open={openDrawer} 
+        onClose={() => setOpenDrawer(false)}
+        ModalProps={{
+          BackdropProps: { style: { backgroundColor: "transparent" } },
+        }}
+      >
+        <Box sx={{ width: 300, p: 3 }}>
+          <Typography variant="h5" gutterBottom>
+            User Information
+          </Typography>
+          {loading ? (
+            <CircularProgress />
+          ) : userInfo ? (
+            <>
+              <Box
+                component="img"
+                sx={{
+                  height: 150,
+                  width: 150,
+                  borderRadius: '50%',
+                }}
+                alt="Profile Picture"
+                src={require("../assets/blank_profile.png")}
+              />
+              <Typography><strong>Name:</strong> {userInfo.username}</Typography>
+              <Typography><strong>Email:</strong> {userInfo.email}</Typography>
+              <Typography><strong>No ISSI:</strong> 123456789</Typography>
+              <Typography><strong>Dept.:</strong> </Typography>
+              <Typography><strong>Riwayat Panggilan Emergency:</strong></Typography>
+              <List disablePadding>
+                <ListItem disablePadding>1. 15/02/2025</ListItem>
+                <ListItem disablePadding>2. 03/03/2025</ListItem>
+                <ListItem disablePadding>3. 12/03/2025</ListItem>
+              </List>
+              <Button 
+                id="delete-marker"
+                variant="contained" 
+                color="secondary" 
+                sx={{ mt: 2 }}
+              >
+                Remove
+              </Button>
+            </>
+            ) : (
+              <Typography>No user data found.</Typography>
+            )}
+
+        </Box>
+      </Drawer>
     </div>
   );
 }
