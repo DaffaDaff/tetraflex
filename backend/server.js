@@ -27,7 +27,7 @@ db.connect((err) => {
 
 // API Endpoint to Get New Entries
 app.get("/new_entries", (req, res) => {
-  const query = 'SELECT latitude, longitude, timestamp, DbId FROM _masterdecode';
+  const query = 'SELECT latitude, longitude, timestamp, callingssi, DbId FROM _masterdecode';
   
   db.query(query, (err, result) => {
     if (err) {

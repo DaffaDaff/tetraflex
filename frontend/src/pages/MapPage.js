@@ -72,11 +72,33 @@ function MapPage() {
       // Track markers on map (inside markersRef)
       data.forEach((entry) => {
         if (!markersRef.current[entry.DbId]) {
-          add3DMarker(entry.latitude, entry.longitude, entry.DbId);
-          // If marker is not on the map already, add it
-          const marker = new maplibregl.Marker()
-            .setLngLat([entry.longitude, entry.latitude])
-            .addTo(map.current);
+          
+
+          // Create a custom marker with an image
+          const markerElement = document.createElement("div");
+          markerElement.style.backgroundImage = "url('/ambulance.png')"; // Update with your icon path
+          markerElement.style.width = "40px"; // Adjust size
+          markerElement.style.height = "40px";
+          markerElement.style.backgroundSize = "cover";
+          markerElement.style.cursor = "pointer";
+
+          let marker = new maplibregl.Marker();
+
+          if(entry.callingssi == 1 || entry.callingssi == 2 || entry.callingssi == 4){
+            // If marker is not on the map already, add it
+            marker = new maplibregl.Marker({element: markerElement})
+              .setLngLat([entry.longitude, entry.latitude])
+              .addTo(map.current);
+          }
+          else{
+            add3DMarker(entry.latitude, entry.longitude, entry.DbId);
+            // If marker is not on the map already, add it
+            marker = new maplibregl.Marker()
+              .setLngLat([entry.longitude, entry.latitude])
+              .addTo(map.current);
+          }
+
+
 
           marker.getElement().addEventListener('click', () => {
             fetchUserInfo(entry.DbId);
